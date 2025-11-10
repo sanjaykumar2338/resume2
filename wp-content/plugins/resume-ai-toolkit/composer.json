@@ -1,0 +1,11 @@
+{
+    "name": "resume-ai/toolkit",
+    "description": "Infrastructure helpers for the Resume AI Toolkit plugin.",
+    "type": "wordpress-plugin",
+    "require": {
+        "dompdf/dompdf": "^2.0",
+        "smalot/pdfparser": "^2.7",
+        "phpoffice/phpword": "^1.2",
+        "stripe/stripe-php": "^18.2"
+    }
+}

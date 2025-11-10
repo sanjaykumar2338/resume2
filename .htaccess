@@ -1,0 +1,12 @@
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteBase /myworkplace/upwork/resume/
+RewriteRule ^index\.php$ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /myworkplace/upwork/resume/index.php [L]
+</IfModule>
+
+<IfModule mod_php.c>
+php_flag display_errors Off
+</IfModule>

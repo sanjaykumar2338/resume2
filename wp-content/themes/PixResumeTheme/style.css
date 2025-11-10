@@ -1,0 +1,14 @@
+/*
+Theme Name: FixResume Theme
+Theme URI: https://example.com/fixresume-theme
+Author: FixResume
+Author URI: https://example.com
+Description: A clean landing-page theme that showcases FixResume’s AI-driven resume enhancement workflow.
+Version: 1.0.0
+License: GNU General Public License v2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: fixresume
+Tags: one-column, landing-page, resume, responsive-layout
+*/
+
+/* WordPress requires this file to exist even if styles are enqueued separately. */
