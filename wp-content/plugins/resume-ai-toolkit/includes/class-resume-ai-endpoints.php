@@ -80,6 +80,13 @@ if ( ! class_exists( 'Resume_AI_EndPoints' ) ) {
             }
 
             if ( empty( $resume_text ) ) {
+                $fallback_text = $this->extract_text_with_cli_strings( $file['path'] );
+                if ( ! empty( $fallback_text ) ) {
+                    $resume_text = $fallback_text;
+                }
+            }
+
+            if ( empty( $resume_text ) ) {
                 return $this->error_response( __( 'We could not read text from the uploaded file. Please try another format.', 'resume-ai-toolkit' ), 400 );
             }
 
@@ -406,6 +413,27 @@ if ( ! class_exists( 'Resume_AI_EndPoints' ) ) {
             $clean = preg_replace( '/[\t\r]+/', ' ', $text );
             $clean = preg_replace( '/\s{2,}/', ' ', $clean );
             return trim( $clean );
+        }
+
+        /**
+         * Attempt to extract text using the system `strings` utility as a fallback.
+         */
+        private function extract_text_with_cli_strings( string $path ) {
+            if ( ! function_exists( 'shell_exec' ) ) {
+                return '';
+            }
+
+            $binary = trim( (string) @shell_exec( 'which strings' ) );
+            if ( empty( $binary ) ) {
+                return '';
+            }
+
+            $output = @shell_exec( escapeshellcmd( $binary ) . ' ' . escapeshellarg( $path ) );
+            if ( empty( $output ) ) {
+                return '';
+            }
+
+            return $this->normalize_resume_text( $output );
         }
 
         /**

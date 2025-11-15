@@ -65,7 +65,143 @@ add_action('after_setup_theme', function (): void {
     add_theme_support('title-tag');
     add_theme_support('post-thumbnails');
     add_theme_support('html5', ['search-form', 'comment-form', 'comment-list', 'gallery', 'caption', 'style', 'script']);
+    register_nav_menus([
+        'primary' => __('Primary Menu', 'fixresume'),
+    ]);
 });
+
+function fixresume_ensure_blog_page(): void
+{
+    $blog_page = get_page_by_path('blog');
+    if (!$blog_page) {
+        $page_id = wp_insert_post(
+            [
+                'post_title'   => __('Blog', 'fixresume'),
+                'post_name'    => 'blog',
+                'post_content' => '',
+                'post_status'  => 'publish',
+                'post_type'    => 'page',
+            ]
+        );
+
+        if (is_wp_error($page_id)) {
+            return;
+        }
+
+        update_post_meta($page_id, '_wp_page_template', 'page-blog.php');
+    } else {
+        update_post_meta($blog_page->ID, '_wp_page_template', 'page-blog.php');
+    }
+}
+
+add_action('after_switch_theme', 'fixresume_ensure_blog_page');
+add_action('init', 'fixresume_ensure_blog_page');
+
+function fixresume_seed_primary_menu(): void
+{
+    $menu_name = __('Primary Navigation', 'fixresume');
+    $menu_obj  = wp_get_nav_menu_object($menu_name);
+    if (!$menu_obj) {
+        $menu_id = wp_create_nav_menu($menu_name);
+    } else {
+        $menu_id = (int) $menu_obj->term_id;
+    }
+
+    if (is_wp_error($menu_id) || ! $menu_id) {
+        return;
+    }
+
+    $locations = get_theme_mod('nav_menu_locations');
+    if (!is_array($locations)) {
+        $locations = [];
+    }
+
+    if (!isset($locations['primary']) || (int) $locations['primary'] !== $menu_id) {
+        $locations['primary'] = $menu_id;
+        set_theme_mod('nav_menu_locations', $locations);
+    }
+
+    $existing_items = wp_get_nav_menu_items($menu_id);
+    if (!empty($existing_items)) {
+        return; // Admin already customized the menu.
+    }
+
+    $menu_items = [
+        [
+            'title'   => __('How it works', 'fixresume'),
+            'url'     => home_url('#how-it-works'),
+            'classes' => '',
+        ],
+        [
+            'title'   => __('Sample suggestions', 'fixresume'),
+            'url'     => home_url('#sample'),
+            'classes' => '',
+        ],
+        [
+            'title'   => __('Blogs', 'fixresume'),
+            'url'     => home_url('/blog/'),
+            'classes' => '',
+        ],
+        [
+            'title'   => __('FAQ', 'fixresume'),
+            'url'     => home_url('#faq'),
+            'classes' => '',
+        ],
+        [
+            'title'   => __('Upload resume', 'fixresume'),
+            'url'     => home_url('#upload'),
+            'classes' => 'cta-link',
+        ],
+    ];
+
+    foreach ($menu_items as $item) {
+        wp_update_nav_menu_item(
+            $menu_id,
+            0,
+            [
+                'menu-item-title'  => $item['title'],
+                'menu-item-url'    => esc_url_raw($item['url']),
+                'menu-item-status' => 'publish',
+                'menu-item-type'   => 'custom',
+                'menu-item-classes'=> $item['classes'],
+            ]
+        );
+    }
+}
+
+add_action('after_switch_theme', 'fixresume_seed_primary_menu');
+add_action('init', 'fixresume_seed_primary_menu');
+
+if (!function_exists('fixresume_nav_auth_items')) {
+    function fixresume_nav_auth_items(): string
+    {
+        if (is_user_logged_in()) {
+            return sprintf(
+                '<li><a href="%1$s">%2$s</a></li><li><a href="%3$s">%4$s</a></li>',
+                esc_url(home_url('/dashboard/')),
+                esc_html__('Dashboard', 'fixresume'),
+                esc_url(wp_logout_url(home_url())),
+                esc_html__('Sign out', 'fixresume')
+            );
+        }
+
+        return sprintf(
+            '<li><a href="%1$s">%2$s</a></li><li><a href="%3$s">%4$s</a></li>',
+            esc_url(wp_login_url(home_url('/dashboard/'))),
+            esc_html__('Sign in', 'fixresume'),
+            esc_url(wp_registration_url()),
+            esc_html__('Sign up', 'fixresume')
+        );
+    }
+}
+
+add_filter('wp_nav_menu_items', function ($items, $args) {
+    if (!isset($args->theme_location) || 'primary' !== $args->theme_location) {
+        return $items;
+    }
+
+    return $items . fixresume_nav_auth_items();
+}, 10, 2);
 
 add_action('wp_enqueue_scripts', function (): void {
     $is_logged_in = is_user_logged_in();

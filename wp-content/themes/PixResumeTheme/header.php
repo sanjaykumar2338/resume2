@@ -19,19 +19,22 @@ $theme_uri = get_template_directory_uri();
 			<?php bloginfo( 'name' ); ?>
 		</a>
 	<nav class="primary-nav" aria-label="<?php esc_attr_e( 'Primary navigation', 'fixresume' ); ?>">
-		<ul>
-			<li><a href="<?php echo esc_url( home_url( '#how-it-works' ) ); ?>"><?php esc_html_e( 'How it works', 'fixresume' ); ?></a></li>
-			<li><a href="<?php echo esc_url( home_url( '#sample' ) ); ?>"><?php esc_html_e( 'Sample suggestions', 'fixresume' ); ?></a></li>
-			<li><a href="<?php echo esc_url( home_url( '#faq' ) ); ?>"><?php esc_html_e( 'FAQ', 'fixresume' ); ?></a></li>
-			<li><a class="cta-link" href="<?php echo esc_url( home_url( '#upload' ) ); ?>"><?php esc_html_e( 'Upload resume', 'fixresume' ); ?></a></li>
-			<?php if ( is_user_logged_in() ) : ?>
-				<li><a href="<?php echo esc_url( home_url( '/dashboard/' ) ); ?>"><?php esc_html_e( 'Dashboard', 'fixresume' ); ?></a></li>
-				<li><a href="<?php echo esc_url( wp_logout_url( home_url() ) ); ?>"><?php esc_html_e( 'Sign out', 'fixresume' ); ?></a></li>
-			<?php else : ?>
-				<li><a href="<?php echo esc_url( wp_login_url( home_url( '/dashboard/' ) ) ); ?>"><?php esc_html_e( 'Sign in', 'fixresume' ); ?></a></li>
-				<li><a href="<?php echo esc_url( wp_registration_url() ); ?>"><?php esc_html_e( 'Sign up', 'fixresume' ); ?></a></li>
-			<?php endif; ?>
-		</ul>
+		<?php if ( has_nav_menu( 'primary' ) ) : ?>
+			<?php
+			wp_nav_menu(
+				[
+					'theme_location' => 'primary',
+					'container'      => false,
+					'menu_class'     => 'primary-nav__list',
+					'fallback_cb'    => false,
+				]
+			);
+			?>
+		<?php elseif ( current_user_can( 'edit_theme_options' ) ) : ?>
+			<ul class="primary-nav__list primary-nav__list--empty">
+				<li class="primary-nav__notice"><?php esc_html_e( 'Assign a menu to the Primary location in Appearance → Menus.', 'fixresume' ); ?></li>
+			</ul>
+		<?php endif; ?>
 	</nav>
 	</div>
 </header>
