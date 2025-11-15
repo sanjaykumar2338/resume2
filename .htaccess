@@ -4,9 +4,10 @@ RewriteBase /myworkplace/upwork/resume2/
 RewriteRule ^index\.php$ - [L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /myworkplace/upwork/resume2/index.php [L]
+RewriteRule ^index\.php$ https://%{HTTP_HOST}/ [R=301,L]
 </IfModule>
 
 <IfModule mod_php.c>
 php_flag display_errors Off
 </IfModule>
+
