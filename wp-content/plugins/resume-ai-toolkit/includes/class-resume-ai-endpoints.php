@@ -338,18 +338,19 @@ if ( ! class_exists( 'Resume_AI_EndPoints' ) ) {
          */
         private function extract_docx_text( string $path ) {
             $zip = new ZipArchive();
-            if ( true !== $zip->open( $path ) ) {
-                return new WP_Error( 'resume_ai_docx_open', __( 'Unable to read the DOCX file.', 'resume-ai-toolkit' ) );
+            if ( true === $zip->open( $path ) ) {
+                $xml = $zip->getFromName( 'word/document.xml' );
+                $zip->close();
+
+                if ( false !== $xml ) {
+                    $text = $this->normalize_resume_text( wp_strip_all_tags( $xml ) );
+                    if ( ! empty( $text ) ) {
+                        return $text;
+                    }
+                }
             }
 
-            $xml = $zip->getFromName( 'word/document.xml' );
-            $zip->close();
-
-            if ( false === $xml ) {
-                return new WP_Error( 'resume_ai_docx_xml', __( 'DOCX structure is invalid.', 'resume-ai-toolkit' ) );
-            }
-
-            return $this->normalize_resume_text( wp_strip_all_tags( $xml ) );
+            return $this->extract_docx_with_phpword( $path );
         }
 
         /**
@@ -413,6 +414,34 @@ if ( ! class_exists( 'Resume_AI_EndPoints' ) ) {
             $clean = preg_replace( '/[\t\r]+/', ' ', $text );
             $clean = preg_replace( '/\s{2,}/', ' ', $clean );
             return trim( $clean );
+        }
+
+        private function extract_docx_with_phpword( string $path ) {
+            if ( ! class_exists( '\\PhpOffice\\PhpWord\\IOFactory' ) ) {
+                return new WP_Error( 'resume_ai_docx_parser_missing', __( 'DOCX parsing library is not available. Please upload a PDF instead.', 'resume-ai-toolkit' ) );
+            }
+
+            try {
+                $document = \PhpOffice\PhpWord\IOFactory::load( $path );
+                $text     = '';
+
+                foreach ( $document->getSections() as $section ) {
+                    foreach ( $section->getElements() as $element ) {
+                        $text .= $this->walk_phpword_element( $element );
+                    }
+                }
+
+                $text = $this->normalize_resume_text( $text );
+
+                if ( empty( $text ) ) {
+                    return new WP_Error( 'resume_ai_docx_empty', __( 'Unable to read the DOCX contents.', 'resume-ai-toolkit' ) );
+                }
+
+                return $text;
+            } catch ( \Exception $exception ) {
+                error_log( sprintf( 'Resume AI Toolkit: DOCX fallback parse failed - %s', $exception->getMessage() ) );
+                return new WP_Error( 'resume_ai_docx_parse_failed', __( 'Unable to read the DOCX contents. Try converting it to PDF.', 'resume-ai-toolkit' ) );
+            }
         }
 
         /**

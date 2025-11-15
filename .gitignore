@@ -1,5 +1,5 @@
 .env
 .env.local
 wp-config.php
+.htaccess
 wp-content/uploads/
-
