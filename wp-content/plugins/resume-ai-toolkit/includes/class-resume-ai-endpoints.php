@@ -74,13 +74,14 @@ if ( ! class_exists( 'Resume_AI_EndPoints' ) ) {
                 return $this->error_response( $file->get_error_message(), 400 );
             }
 
-            $resume_text = $this->extract_text_from_file( $file['path'], $file['ext'] );
+            $source_path = isset( $file['local_path'] ) ? $file['local_path'] : $file['path'];
+            $resume_text = $this->extract_text_from_file( $source_path, $file['ext'] );
             if ( is_wp_error( $resume_text ) ) {
                 return $this->error_response( $resume_text->get_error_message(), 400 );
             }
 
             if ( empty( $resume_text ) ) {
-                $fallback_text = $this->extract_text_with_cli_strings( $file['path'] );
+                $fallback_text = $this->extract_text_with_cli_strings( $source_path );
                 if ( ! empty( $fallback_text ) ) {
                     $resume_text = $fallback_text;
                 }
@@ -290,11 +291,23 @@ if ( ! class_exists( 'Resume_AI_EndPoints' ) ) {
                 return new WP_Error( 'resume_ai_file_type', __( 'Please upload a PDF, DOC, or DOCX file.', 'resume-ai-toolkit' ) );
             }
 
+            $tmp_path = wp_tempnam( $file['name'] );
+            if ( ! $tmp_path ) {
+                return new WP_Error( 'resume_ai_upload_error', __( 'Unable to process the uploaded file.', 'resume-ai-toolkit' ) );
+            }
+
+            if ( ! @move_uploaded_file( $file['tmp_name'], $tmp_path ) ) {
+                if ( ! file_put_contents( $tmp_path, file_get_contents( $file['tmp_name'] ) ) ) {
+                    return new WP_Error( 'resume_ai_upload_error', __( 'Unable to process the uploaded file.', 'resume-ai-toolkit' ) );
+                }
+            }
+
             return [
-                'path' => $file['tmp_name'],
-                'ext'  => $ext,
-                'name' => sanitize_file_name( $file['name'] ),
-                'hash' => sha1_file( $file['tmp_name'] ),
+                'path'       => $tmp_path,
+                'ext'        => $ext,
+                'name'       => sanitize_file_name( $file['name'] ),
+                'hash'       => sha1_file( $tmp_path ),
+                'local_path' => $tmp_path,
             ];
         }
 
@@ -417,7 +430,8 @@ if ( ! class_exists( 'Resume_AI_EndPoints' ) ) {
         }
 
         private function extract_docx_with_phpword( string $path ) {
-            if ( ! class_exists( '\\PhpOffice\\PhpWord\\IOFactory' ) ) {
+            if ( ! class_exists( '\PhpOffice\PhpWord\IOFactory' ) ) {
+                $this->log_parser_message( 'PhpWord IOFactory missing for DOCX parsing.' );
                 return new WP_Error( 'resume_ai_docx_parser_missing', __( 'DOCX parsing library is not available. Please upload a PDF instead.', 'resume-ai-toolkit' ) );
             }
 
@@ -434,12 +448,13 @@ if ( ! class_exists( 'Resume_AI_EndPoints' ) ) {
                 $text = $this->normalize_resume_text( $text );
 
                 if ( empty( $text ) ) {
+                    $this->log_parser_message( sprintf( 'DOCX extracted text empty for %s', $path ) );
                     return new WP_Error( 'resume_ai_docx_empty', __( 'Unable to read the DOCX contents.', 'resume-ai-toolkit' ) );
                 }
 
                 return $text;
             } catch ( \Exception $exception ) {
-                error_log( sprintf( 'Resume AI Toolkit: DOCX fallback parse failed - %s', $exception->getMessage() ) );
+                $this->log_parser_message( sprintf( 'DOCX fallback parse failed (%s) - %s', $path, $exception->getMessage() ) );
                 return new WP_Error( 'resume_ai_docx_parse_failed', __( 'Unable to read the DOCX contents. Try converting it to PDF.', 'resume-ai-toolkit' ) );
             }
         }
@@ -463,6 +478,26 @@ if ( ! class_exists( 'Resume_AI_EndPoints' ) ) {
             }
 
             return $this->normalize_resume_text( $output );
+        }
+
+        /**
+         * Write parser debug information to a log file within the project.
+         */
+        private function log_parser_message( string $message ) {
+            $uploads = wp_upload_dir();
+            if ( empty( $uploads['basedir'] ) ) {
+                error_log( 'Resume AI Toolkit: Unable to determine uploads directory for logging.' );
+                return;
+            }
+
+            $log_dir = trailingslashit( $uploads['basedir'] ) . 'resume-ai-logs';
+            if ( ! file_exists( $log_dir ) ) {
+                wp_mkdir_p( $log_dir );
+            }
+
+            $log_file = trailingslashit( $log_dir ) . 'docx-parser.log';
+            $entry    = sprintf( "[%s] %s\n", gmdate( 'c' ), $message );
+            file_put_contents( $log_file, $entry, FILE_APPEND );
         }
 
         /**
